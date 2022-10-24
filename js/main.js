@@ -124,7 +124,11 @@ function createLinePlot(id) {
     .append("g")
     .attr("transform", `translate(${margin.left}, ${margin.top})`);
   d3.csv("data/final_appData.csv", function (d) {
-    return { date: d3.timeParse("%Y-%m-%d")(d.released), value: d.reviews };
+    return {
+      date: d3.timeParse("%Y-%m-%d")(d.released),
+      value: d.reviews,
+      title: d.title,
+    };
   }).then(
     // Now I can use this dataset:
     function (data) {
@@ -198,6 +202,16 @@ function createLinePlot(id) {
               return y(d.value);
             })
         );
+      // adding circles
+      line
+        .selectAll(".circle")
+        .data(data)
+        .join("circle")
+        .attr("class", "circle itemValues")
+        .attr("cx", (d) => x(d.date))
+        .attr("cy", (d) => y(d.value))
+        .attr("r", 1)
+        .style("fill", "blue");
 
       // Add the brushing
       line.append("g").attr("class", "brush").call(brush);
@@ -227,7 +241,7 @@ function createLinePlot(id) {
         // Update axis and line position
         xAxis.transition().duration(1000).call(d3.axisBottom(x));
         line
-          .select(".line")
+          .selectAll(".line")
           .transition()
           .duration(1000)
           .attr(
@@ -241,6 +255,16 @@ function createLinePlot(id) {
                 return y(d.value);
               })
           );
+        line
+          .selectAll(".circle")
+          .transition()
+          .duration(1000)
+          .attr("cx", function (d) {
+            return x(d.date);
+          })
+          .atrr("cy", function (d) {
+            return y(d.value);
+          });
       }
 
       // If user double click, reinitialize the chart
@@ -271,6 +295,15 @@ function createLinePlot(id) {
                 return y(d.value);
               })
           );
+        line
+          .selectAll(".circle")
+          .transition()
+          .attr("cx", function (d) {
+            return x(d.date);
+          })
+          .atrr("cy", function (d) {
+            return y(d.value);
+          });
       });
     }
   );
