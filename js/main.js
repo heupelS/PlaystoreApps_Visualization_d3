@@ -128,12 +128,20 @@ function createLinePlot(id) {
       date: d3.timeParse("%Y-%m-%d")(d.released),
       value: d.reviews,
       title: d.title,
+      free: d.free,
     };
   }).then(
     // Now I can use this dataset:
     function (data) {
       // Add X axis --> it is a date format
       data = data.sort((objA, objB) => Number(objA.date) - Number(objB.date));
+
+      const free_category = Array.from(new Set(data.map((d) => d.free))).sort();
+      let color = d3
+        .scaleOrdinal()
+        .domain(free_category)
+        .range(["blue", "red"]);
+
       const x = d3
         .scaleTime()
         .domain(
@@ -208,10 +216,10 @@ function createLinePlot(id) {
         .data(data)
         .join("circle")
         .attr("class", "circle itemValues")
+        .style("fill", (d) => color(d.free))
         .attr("cx", (d) => x(d.date))
         .attr("cy", (d) => y(d.value))
-        .attr("r", 1)
-        .style("fill", "blue");
+        .attr("r", 1);
 
       // Add the brushing
       line.append("g").attr("class", "brush").call(brush);
