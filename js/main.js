@@ -4,7 +4,7 @@ const height = 400 - margin.top - margin.bottom; */
 
 //const margin = { top: 20, right: 30, bottom: 40, left: 90 };
 const margin = { top: 20, right: 30, bottom: 40, left: 90 };
-const width = 600 - margin.left - margin.right;
+const width = 700 - margin.left - margin.right;
 const height = 400 - margin.top - margin.bottom;
 function init() {
   createBubbleChart("#bubblechart");
@@ -38,11 +38,11 @@ function createBubbleChart(id) {
       new Set(data.map((d) => d.contentRating))
     ).reverse();
 
-    const y = d3.scalePoint().domain(sectors).range([height, 0]);
+    const y = d3.scalePoint().domain(sectors).range([height, margin.top]);
     const x = d3
       .scaleLinear()
       .domain(d3.extent(data.map((d) => +d["score"])))
-      .range([0, width]);
+      .range([margin.left, width]);
 
     let color = d3.scaleOrdinal().domain(sectors).range(["blue", "red"]);
     let ratingsDomain = d3.extent(data.map((d) => +d["ratings"]));
