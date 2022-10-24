@@ -37,14 +37,14 @@ function createBubbleChart(id) {
     let sectors = Array.from(
       new Set(data.map((d) => d.contentRating))
     ).reverse();
-
+    const free_category = Array.from(new Set(data.map((d) => d.free))).sort();
     const y = d3.scalePoint().domain(sectors).range([height, margin.top]);
     const x = d3
       .scaleLinear()
       .domain(d3.extent(data.map((d) => +d["score"])))
       .range([margin.left, width]);
 
-    let color = d3.scaleOrdinal().domain(sectors).range(["blue", "red"]);
+    let color = d3.scaleOrdinal().domain(free_category).range(["blue", "red"]);
     let ratingsDomain = d3.extent(data.map((d) => +d["ratings"]));
     let size = d3.scaleSqrt().domain(ratingsDomain).range([1, 20]);
 
@@ -301,14 +301,14 @@ function updatebubbleChart(startDate, endDate) {
     let sectors = Array.from(
       new Set(data.map((d) => d.contentRating))
     ).reverse();
-
-    const y = d3.scalePoint().domain(sectors).range([height, 0]);
+    const free_category = Array.from(new Set(data.map((d) => d.free))).sort();
+    const y = d3.scalePoint().domain(sectors).range([height, margin.top]);
     const x = d3
       .scaleLinear()
       .domain(d3.extent(data.map((d) => +d["score"])))
-      .range([0, width]);
+      .range([margin.left, width]);
 
-    let color = d3.scaleOrdinal().domain(sectors).range(["blue", "red"]);
+    let color = d3.scaleOrdinal().domain(free_category).range(["blue", "red"]);
     let ratingsDomain = d3.extent(data.map((d) => +d["ratings"]));
     let size = d3.scaleSqrt().domain(ratingsDomain).range([1, 20]);
     const svg = d3.select("#gBubbleChart");
