@@ -219,7 +219,7 @@ function createLinePlot(id) {
           x.domain([4, 8]);
         } else {
           updatebubbleChart(x.invert(extent[0]), x.invert(extent[1]));
-
+          //console.log(x.invert(extent[0]));
           x.domain([x.invert(extent[0]), x.invert(extent[1])]);
           line.select(".brush").call(brush.move, null); // This remove the grey brush area as soon as the selection has been done
         }
@@ -245,6 +245,12 @@ function createLinePlot(id) {
 
       // If user double click, reinitialize the chart
       svg.on("dblclick", function () {
+        const full_time_span = [
+          new Date("December 17, 1971 03:24:00"),
+          new Date("December 17, 2030 03:24:00"),
+        ];
+
+        updatebubbleChart(full_time_span[0], full_time_span[1]);
         x.domain(
           d3.extent(data, function (d) {
             return d.date;
