@@ -1,11 +1,12 @@
-/* const margin = { top: 20, right: 30, bottom: 40, left: 90 };
-const width = 600 - margin.left - margin.right;
-const height = 400 - margin.top - margin.bottom; */
-
-//const margin = { top: 20, right: 30, bottom: 40, left: 90 };
 const margin = { top: 20, right: 30, bottom: 40, left: 90 };
 const width = 700 - margin.left - margin.right;
 const height = 400 - margin.top - margin.bottom;
+
+// Global filter variables
+let startDate;
+let endDate;
+let filterparam_contentRating;
+
 function init() {
   createBubbleChart("#bubblechart");
   createLinePlot("#lineChart");
@@ -19,7 +20,7 @@ function createBubbleChart(id) {
     .append("g")
     .attr("id", "gBubbleChart")
     .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-  d3.csv("data/final_appData.csv").then(function (data) {
+  data = d3.csv("data/final_appData.csv").then(function (data) {
     let nodes = [];
     data.forEach((d) => {
       nodes.push({
@@ -72,6 +73,9 @@ function createBubbleChart(id) {
       .attr("id", "gYaxis")
       .attr("transform", `translate(0,0)`)
       .call(d3.axisLeft(y));
+
+    svg.select("#gYaxis").selectAll(".tick").on("click", clickMe);
+
     let simulation = d3
       .forceSimulation(nodes)
       .force(
@@ -100,7 +104,7 @@ function createBubbleChart(id) {
       )
 
       .alphaDecay(0)
-      .alpha(0.3)
+      .alpha(0.2)
       .on("tick", tick);
 
     function tick() {
@@ -122,26 +126,27 @@ function createLinePlot(id) {
     .attr("width", width + margin.left + margin.right)
     .attr("height", height + margin.top + margin.bottom)
     .append("g")
+    .attr("id", "gLineChart")
     .attr("transform", `translate(${margin.left}, ${margin.top})`);
   d3.csv("data/final_appData.csv", function (d) {
     return {
       date: d3.timeParse("%Y-%m-%d")(d.released),
-      value: d.reviews,
+      value: d.Installs,
       title: d.title,
       free: d.free,
     };
   }).then(
     // Now I can use this dataset:
     function (data) {
-      // Add X axis --> it is a date format
+      const free_category = Array.from(new Set(data.map((d) => d.free))).sort();
       data = data.sort((objA, objB) => Number(objA.date) - Number(objB.date));
 
-      const free_category = Array.from(new Set(data.map((d) => d.free))).sort();
       let color = d3
         .scaleOrdinal()
         .domain(free_category)
         .range(["blue", "red"]);
 
+      // Add X axis --> it is a date format
       const x = d3
         .scaleTime()
         .domain(
@@ -152,6 +157,7 @@ function createLinePlot(id) {
         .range([0, width]);
       xAxis = svg
         .append("g")
+        .attr("id", "xAxisLineChart")
         .attr("transform", `translate(0, ${height})`)
         .call(d3.axisBottom(x));
 
@@ -165,7 +171,7 @@ function createLinePlot(id) {
           }),
         ])
         .range([height, 0]);
-      yAxis = svg.append("g").call(d3.axisLeft(y));
+      yAxis = svg.append("g").attr("id", "yAxisLineChart").call(d3.axisLeft(y));
 
       // Add a clipPath: everything out of this area won't be drawn.
       const clip = svg
@@ -219,7 +225,7 @@ function createLinePlot(id) {
         .style("fill", (d) => color(d.free))
         .attr("cx", (d) => x(d.date))
         .attr("cy", (d) => y(d.value))
-        .attr("r", 1);
+        .attr("r", 1.3);
 
       // Add the brushing
       line.append("g").attr("class", "brush").call(brush);
@@ -240,8 +246,11 @@ function createLinePlot(id) {
           if (!idleTimeout) return (idleTimeout = setTimeout(idled, 350)); // This allows to wait a little bit
           x.domain([4, 8]);
         } else {
-          updatebubbleChart(x.invert(extent[0]), x.invert(extent[1]));
-          //console.log(x.invert(extent[0]));
+          updatebubbleChart({
+            startDate: x.invert(extent[0]),
+            endDate: x.invert(extent[1]),
+          });
+
           x.domain([x.invert(extent[0]), x.invert(extent[1])]);
           line.select(".brush").call(brush.move, null); // This remove the grey brush area as soon as the selection has been done
         }
@@ -270,19 +279,28 @@ function createLinePlot(id) {
           .attr("cx", function (d) {
             return x(d.date);
           })
-          .atrr("cy", function (d) {
+          .attr("cy", function (d) {
             return y(d.value);
           });
       }
 
       // If user double click, reinitialize the chart
       svg.on("dblclick", function () {
+        const sectors = Array.from(
+          new Set(data.map((d) => d.contentRating))
+        ).reverse();
+
         const full_time_span = [
           new Date("December 17, 1971 03:24:00"),
           new Date("December 17, 2030 03:24:00"),
         ];
 
-        updatebubbleChart(full_time_span[0], full_time_span[1]);
+        updatebubbleChart({
+          startDate: full_time_span[0],
+          endDate: full_time_span[1],
+          filterparam_contentRating: sectors,
+        });
+
         x.domain(
           d3.extent(data, function (d) {
             return d.date;
@@ -309,22 +327,50 @@ function createLinePlot(id) {
           .attr("cx", function (d) {
             return x(d.date);
           })
-          .atrr("cy", function (d) {
+          .attr("cy", function (d) {
             return y(d.value);
           });
       });
     }
   );
 }
-function updatebubbleChart(startDate, endDate) {
+////////////////////////////////////////////////////////////////////////
+// on click function from bubble y axis
+function clickMe() {
+  updatebubbleChart({ filterparam_contentRating: this.textContent });
+  //updateLinePlot({ filterparam_contentRating: this.textContent });
+}
+
+////////////////////////////////////////////////////////////////////////
+// update Bubble
+function updatebubbleChart(args) {
+  // create optional args for multifiltering
+  startDate = args.startDate || startDate;
+  endDate = args.endDate || endDate;
+  filterparam_contentRating =
+    args.filterparam_contentRating || filterparam_contentRating;
+
   d3.csv("data/final_appData.csv").then(function (data) {
-    startDate = startDate.toISOString().split("T")[0];
-    endDate = endDate.toISOString().split("T")[0];
-
-    data = data.filter(function (elem) {
-      return startDate <= elem.released && elem.released <= endDate;
-    });
-
+    if (startDate) {
+      if (Object.prototype.toString.call(startDate) === "[object Date]") {
+        startDate = startDate.toISOString().split("T")[0];
+        endDate = endDate.toISOString().split("T")[0];
+      }
+      data = data.filter(function (elem) {
+        return startDate <= elem.released && elem.released <= endDate;
+      });
+    }
+    if (filterparam_contentRating) {
+      if (Array.isArray(filterparam_contentRating)) {
+        data = data.filter(function (elem) {
+          return elem;
+        });
+      } else {
+        data = data.filter(function (elem) {
+          return elem.contentRating == filterparam_contentRating;
+        });
+      }
+    }
     let nodes = [];
     data.forEach((d) => {
       nodes.push({
@@ -409,5 +455,218 @@ function updatebubbleChart(startDate, endDate) {
       console.log("start alpha decay");
       simulation.alphaDecay(0.1);
     }, 3000);
+  });
+}
+
+////////////////////////////////////////////////////////////////////////
+
+// updateline Chart
+// not ready yet
+function updateLinePlot(args) {
+  filterparam_contentRating =
+    args.filterparam_contentRating || filterparam_contentRating;
+  d3.csv("data/final_appData.csv", function (d) {
+    return {
+      date: d3.timeParse("%Y-%m-%d")(d.released),
+      value: d.Installs,
+      title: d.title,
+      free: d.free,
+    };
+  }).then(function (data) {
+    const free_category = Array.from(new Set(data.map((d) => d.free))).sort();
+
+    // filter for contentRating if exists
+    if (filterparam_contentRating) {
+      if (Array.isArray(filterparam_contentRating)) {
+        console.log("arr");
+        data = data.filter(function (elem) {
+          return elem;
+        });
+      } else {
+        console.log("str");
+        data = data.filter(function (elem) {
+          return elem.contentRating == filterparam_contentRating;
+        });
+      }
+    }
+    data = data.sort((objA, objB) => Number(objA.date) - Number(objB.date));
+
+    let color = d3.scaleOrdinal().domain(free_category).range(["blue", "red"]);
+
+    const svg = d3.select("#gLineChart");
+    console.log("test");
+    const x = d3
+      .scaleTime()
+      .domain(
+        d3.extent(data, function (d) {
+          return d.date;
+        })
+      )
+      .range([0, width]);
+
+    xAxis = svg
+      .select("#xAxisLineChart")
+      .attr("transform", `translate(0, ${height})`)
+      .call(d3.axisBottom(x));
+
+    const y = d3
+      .scaleLinear()
+      .domain([
+        0,
+        d3.max(data, function (d) {
+          return +d.value;
+        }),
+      ])
+      .range([height, 0]);
+    yAxis = svg.select("#yAxisLineChart").call(d3.axisLeft(y));
+
+    // Add a clipPath: everything out of this area won't be drawn.
+    const clip = svg
+      .selectAll(".itemValues")
+      .attr("width", width)
+      .attr("height", height)
+      .attr("x", 0)
+      .attr("y", 0);
+
+    // Add brushing
+    const brush = d3
+      .brushX() // Add the brush feature using the d3.brush function
+      .extent([
+        [0, 0],
+        [width, height],
+      ]) // initialise the brush area: start at 0,0 and finishes at width,height: it means I select the whole graph area
+      .on("end", updateChartzoom); // Each time the brush selection changes, trigger the 'updateChartzoom' function
+
+    // Create the line variable: where both the line and the brush take place
+    const line = svg.select("#gLineChart").attr("clip-path", "url(#clip)");
+
+    // Add the line
+    line
+      .selectAll(".itemValues")
+      .attr("fill", "none")
+      .attr("stroke", "steelblue")
+      .attr("stroke-width", 1.5)
+      .attr(
+        "d",
+        d3
+          .line()
+          .x(function (d) {
+            return x(d.date);
+          })
+          .y(function (d) {
+            return y(d.value);
+          })
+      );
+    // adding circles
+    line
+      .selectAll(".circle")
+      .data(data)
+      .join("circle")
+      .style("fill", (d) => color(d.free))
+      .attr("cx", (d) => x(d.date))
+      .attr("cy", (d) => y(d.value))
+      .attr("r", 1.3);
+
+    // Add the brushing
+    line.select(".brush").call(brush);
+
+    // A function that set idleTimeOut to null
+    let idleTimeout;
+    function idled() {
+      idleTimeout = null;
+    }
+
+    // A function that update the chart for given boundaries
+    function updateChartzoom(event, d) {
+      // What are the selected boundaries?
+      extent = event.selection;
+
+      // If no selection, back to initial coordinate. Otherwise, update X axis domain
+      if (!extent) {
+        if (!idleTimeout) return (idleTimeout = setTimeout(idled, 350)); // This allows to wait a little bit
+        x.domain([4, 8]);
+      } else {
+        updatebubbleChart({
+          startDate: x.invert(extent[0]),
+          endDate: x.invert(extent[1]),
+        });
+
+        x.domain([x.invert(extent[0]), x.invert(extent[1])]);
+        line.select(".brush").call(brush.move, null); // This remove the grey brush area as soon as the selection has been done
+      }
+
+      // Update axis and line position
+      xAxis.transition().duration(1000).call(d3.axisBottom(x));
+      line
+        .selectAll(".line")
+        .transition()
+        .duration(1000)
+        .attr(
+          "d",
+          d3
+            .line()
+            .x(function (d) {
+              return x(d.date);
+            })
+            .y(function (d) {
+              return y(d.value);
+            })
+        );
+      line
+        .selectAll(".circle")
+        .transition()
+        .duration(1000)
+        .attr("cx", function (d) {
+          return x(d.date);
+        })
+        .attr("cy", function (d) {
+          return y(d.value);
+        });
+    }
+
+    // If user double click, reinitialize the chart
+    svg.on("dblclick", function () {
+      const full_time_span = [
+        new Date("December 17, 1971 03:24:00"),
+        new Date("December 17, 2030 03:24:00"),
+      ];
+
+      // maybe not needed
+      updatebubbleChart({
+        startDate: full_time_span[0],
+        endDate: full_time_span[1],
+      });
+
+      x.domain(
+        d3.extent(data, function (d) {
+          return d.date;
+        })
+      );
+      xAxis.transition().call(d3.axisBottom(x));
+      line
+        .selectAll(".line")
+        .transition()
+        .attr(
+          "d",
+          d3
+            .line()
+            .x(function (d) {
+              return x(d.date);
+            })
+            .y(function (d) {
+              return y(d.value);
+            })
+        );
+
+      line
+        .selectAll(".circle")
+        .transition()
+        .attr("cx", function (d) {
+          return x(d.date);
+        })
+        .attr("cy", function (d) {
+          return y(d.value);
+        });
+    });
   });
 }
