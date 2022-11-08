@@ -47,7 +47,7 @@ function createBubbleChart(id) {
 
     let color = d3.scaleOrdinal().domain(free_category).range(["blue", "red"]);
     let ratingsDomain = d3.extent(data.map((d) => +d["ratings"]));
-    let size = d3.scaleSqrt().domain(ratingsDomain).range([1, 20]);
+    let size = d3.scaleSqrt().domain(ratingsDomain).range([1, 15]);
 
     svg
       .selectAll(".circ")
@@ -498,7 +498,8 @@ function updateLinePlot(args) {
       } else {
         console.log("str");
         data = data.filter(function (elem) {
-          return elem.contentRating == filterparam_contentRating;
+          console.log(filterparam_contentRating);
+          return elem.contentRating === filterparam_contentRating;
         });
       }
     }
@@ -511,7 +512,7 @@ function updateLinePlot(args) {
     const x = d3
       .scaleTime()
       .domain(
-        d3.extent(data, function (d) {
+        d3.extent(original_data, function (d) {
           return d.date;
         })
       )
@@ -526,7 +527,7 @@ function updateLinePlot(args) {
       .scaleLinear()
       .domain([
         0,
-        d3.max(data, function (d) {
+        d3.max(original_data, function (d) {
           return +d.value;
         }),
       ])
@@ -534,10 +535,8 @@ function updateLinePlot(args) {
     yAxis = svg.select("#yAxisLineChart").call(d3.axisLeft(y));
 
     // Add a clipPath: everything out of this area won't be drawn.
-    /* const clip = svg
-      .append("defs")
-      .append("svg:clipPath")
-      .attr("id", "clip")
+    /* const clip = d3
+      .select("#clip")
       .append("svg:rect")
       .attr("class", "rect itemValues")
       .attr("width", width)
@@ -573,6 +572,7 @@ function updateLinePlot(args) {
     line
       .selectAll(".circle")
       .join("circle")
+      .data(data)
       .style("fill", (d) => color(d.free))
       .attr("cx", (d) => x(d.date))
       .attr("cy", (d) => y(d.value))
@@ -682,12 +682,22 @@ function updateLinePlot(args) {
 }
 
 function handleMouseOver(item) {
-  d3.selectAll(".circle")
-    .filter(function (d, i) {
-      return d.title == item.title;
-    })
-    .attr("r", 10)
-    .style("fill", "red");
+  let data = d3.csv("data/final_appData.csv").then(function (data) {
+    const free_category = Array.from(new Set(data.map((d) => d.free))).sort();
+    let color = d3.scaleOrdinal().domain(free_category).range(["blue", "red"]);
+    d3.selectAll(".circle")
+      .filter(function (d, i) {
+        return d.title == item.title;
+      })
+      .attr("r", 10)
+      .style("fill", (item) => color(item.free));
+
+    d3.selectAll(".circ")
+      .filter(function (d, i) {
+        return d.title != item.title;
+      })
+      .attr("fill-opacity", 0.2);
+  });
 }
 
 function handleMouseLeave(item) {
@@ -697,5 +707,6 @@ function handleMouseLeave(item) {
     d3.selectAll(".circle")
       .attr("r", 1.3)
       .style("fill", (item) => color(item.free));
+    d3.selectAll(".circ").attr("fill-opacity", 1);
   });
 }
