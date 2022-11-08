@@ -60,6 +60,8 @@ function createBubbleChart(id) {
       .attr("r", (d) => size(d["ratings"]))
       .attr("cx", (d) => x(d.score))
       .attr("cy", (d) => y(d.contentRating))
+      .on("mouseover", (event, d) => handleMouseOver(d))
+      .on("mouseleave", (event, d) => handleMouseLeave(d))
       .append("title")
       .text((d) => d.title);
 
@@ -134,10 +136,12 @@ function createLinePlot(id) {
       value: d.Installs,
       title: d.title,
       free: d.free,
+      contentRating: d.contentRating,
     };
   }).then(
     // Now I can use this dataset:
     function (data) {
+      let original_data = data;
       const free_category = Array.from(new Set(data.map((d) => d.free))).sort();
       data = data.sort((objA, objB) => Number(objA.date) - Number(objB.date));
 
@@ -195,11 +199,15 @@ function createLinePlot(id) {
         .on("end", updateChartzoom); // Each time the brush selection changes, trigger the 'updateChartzoom' function
 
       // Create the line variable: where both the line and the brush take place
-      const line = svg.append("g").attr("clip-path", "url(#clip)");
+      const line = svg
+        .append("g")
+        .attr("clip-path", "url(#clip)")
+        .attr("id", "gLine");
 
       // Add the line
       line
         .append("path")
+        //.attr("id", "linePath") //maybe not needed
         .datum(data)
         .attr("class", "line itemValues") // I add the class line to be able to modify this line later on.
         .attr("fill", "none")
@@ -287,7 +295,7 @@ function createLinePlot(id) {
       // If user double click, reinitialize the chart
       svg.on("dblclick", function () {
         const sectors = Array.from(
-          new Set(data.map((d) => d.contentRating))
+          new Set(original_data.map((d) => d.contentRating))
         ).reverse();
 
         const full_time_span = [
@@ -302,7 +310,7 @@ function createLinePlot(id) {
         });
 
         x.domain(
-          d3.extent(data, function (d) {
+          d3.extent(original_data, function (d) {
             return d.date;
           })
         );
@@ -338,7 +346,7 @@ function createLinePlot(id) {
 // on click function from bubble y axis
 function clickMe() {
   updatebubbleChart({ filterparam_contentRating: this.textContent });
-  //updateLinePlot({ filterparam_contentRating: this.textContent });
+  updateLinePlot({ filterparam_contentRating: this.textContent });
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -471,9 +479,14 @@ function updateLinePlot(args) {
       value: d.Installs,
       title: d.title,
       free: d.free,
+      contentRating: d.contentRating,
     };
   }).then(function (data) {
+    let original_data = data;
     const free_category = Array.from(new Set(data.map((d) => d.free))).sort();
+    let sectors = Array.from(
+      new Set(data.map((d) => d.contentRating))
+    ).reverse();
 
     // filter for contentRating if exists
     if (filterparam_contentRating) {
@@ -493,7 +506,7 @@ function updateLinePlot(args) {
 
     let color = d3.scaleOrdinal().domain(free_category).range(["blue", "red"]);
 
-    const svg = d3.select("#gLineChart");
+    let svg = d3.select("#gLineChart");
     console.log("test");
     const x = d3
       .scaleTime()
@@ -521,12 +534,16 @@ function updateLinePlot(args) {
     yAxis = svg.select("#yAxisLineChart").call(d3.axisLeft(y));
 
     // Add a clipPath: everything out of this area won't be drawn.
-    const clip = svg
-      .selectAll(".itemValues")
+    /* const clip = svg
+      .append("defs")
+      .append("svg:clipPath")
+      .attr("id", "clip")
+      .append("svg:rect")
+      .attr("class", "rect itemValues")
       .attr("width", width)
       .attr("height", height)
       .attr("x", 0)
-      .attr("y", 0);
+      .attr("y", 0); */
 
     // Add brushing
     const brush = d3
@@ -538,29 +555,23 @@ function updateLinePlot(args) {
       .on("end", updateChartzoom); // Each time the brush selection changes, trigger the 'updateChartzoom' function
 
     // Create the line variable: where both the line and the brush take place
-    const line = svg.select("#gLineChart").attr("clip-path", "url(#clip)");
+    const line = svg.select("#gLine");
 
     // Add the line
-    line
-      .selectAll(".itemValues")
-      .attr("fill", "none")
-      .attr("stroke", "steelblue")
-      .attr("stroke-width", 1.5)
-      .attr(
-        "d",
-        d3
-          .line()
-          .x(function (d) {
-            return x(d.date);
-          })
-          .y(function (d) {
-            return y(d.value);
-          })
-      );
+    line.selectAll(".line").attr(
+      "d",
+      d3
+        .line()
+        .x(function (d) {
+          return x(d.date);
+        })
+        .y(function (d) {
+          return y(d.value);
+        })
+    );
     // adding circles
     line
       .selectAll(".circle")
-      .data(data)
       .join("circle")
       .style("fill", (d) => color(d.free))
       .attr("cx", (d) => x(d.date))
@@ -631,12 +642,11 @@ function updateLinePlot(args) {
         new Date("December 17, 2030 03:24:00"),
       ];
 
-      // maybe not needed
       updatebubbleChart({
         startDate: full_time_span[0],
         endDate: full_time_span[1],
+        filterparam_contentRating: sectors,
       });
-
       x.domain(
         d3.extent(data, function (d) {
           return d.date;
@@ -668,5 +678,24 @@ function updateLinePlot(args) {
           return y(d.value);
         });
     });
+  });
+}
+
+function handleMouseOver(item) {
+  d3.selectAll(".circle")
+    .filter(function (d, i) {
+      return d.title == item.title;
+    })
+    .attr("r", 10)
+    .style("fill", "red");
+}
+
+function handleMouseLeave(item) {
+  let data = d3.csv("data/final_appData.csv").then(function (data) {
+    const free_category = Array.from(new Set(data.map((d) => d.free))).sort();
+    let color = d3.scaleOrdinal().domain(free_category).range(["blue", "red"]);
+    d3.selectAll(".circle")
+      .attr("r", 1.3)
+      .style("fill", (item) => color(item.free));
   });
 }
