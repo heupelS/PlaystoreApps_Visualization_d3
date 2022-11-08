@@ -1,6 +1,6 @@
 const margin = { top: 20, right: 30, bottom: 40, left: 90 };
-const width = 700 - margin.left - margin.right;
-const height = 400 - margin.top - margin.bottom;
+const width = 600 - margin.left - margin.right;
+const height = 350 - margin.top - margin.bottom;
 
 // Global filter variables
 let startDate;
@@ -39,11 +39,14 @@ function createBubbleChart(id) {
       new Set(data.map((d) => d.contentRating))
     ).reverse();
     const free_category = Array.from(new Set(data.map((d) => d.free))).sort();
-    const y = d3.scalePoint().domain(sectors).range([height, margin.top]);
+    const y = d3
+      .scalePoint()
+      .domain(sectors)
+      .range([height, margin.bottom + margin.top]);
     const x = d3
       .scaleLinear()
       .domain(d3.extent(data.map((d) => +d["score"])))
-      .range([margin.left, width]);
+      .range([margin.bottom, width - margin.left]);
 
     let color = d3.scaleOrdinal().domain(free_category).range(["blue", "red"]);
     let ratingsDomain = d3.extent(data.map((d) => +d["ratings"]));
@@ -397,15 +400,18 @@ function updatebubbleChart(args) {
       new Set(data.map((d) => d.contentRating))
     ).reverse();
     const free_category = Array.from(new Set(data.map((d) => d.free))).sort();
-    const y = d3.scalePoint().domain(sectors).range([height, margin.top]);
+    const y = d3
+      .scalePoint()
+      .domain(sectors)
+      .range([height, margin.bottom + margin.top]);
     const x = d3
       .scaleLinear()
       .domain(d3.extent(data.map((d) => +d["score"])))
-      .range([margin.left, width]);
+      .range([margin.bottom, width - margin.left]);
 
     let color = d3.scaleOrdinal().domain(free_category).range(["blue", "red"]);
     let ratingsDomain = d3.extent(data.map((d) => +d["ratings"]));
-    let size = d3.scaleSqrt().domain(ratingsDomain).range([1, 20]);
+    let size = d3.scaleSqrt().domain(ratingsDomain).range([1, 15]);
     const svg = d3.select("#gBubbleChart");
     svg
       .selectAll(".circ")
@@ -423,6 +429,9 @@ function updatebubbleChart(args) {
 
     svg.select("gXaxis").call(d3.axisBottom(x));
     svg.select("#gYaxis").call(d3.axisLeft(y));
+
+    svg.select("#gYaxis").selectAll(".tick").on("click", clickMe);
+
     let simulation = d3
       .forceSimulation(nodes)
       .force(
@@ -482,6 +491,7 @@ function updateLinePlot(args) {
       contentRating: d.contentRating,
     };
   }).then(function (data) {
+    data = data.sort((objA, objB) => Number(objA.date) - Number(objB.date));
     let original_data = data;
     const free_category = Array.from(new Set(data.map((d) => d.free))).sort();
     let sectors = Array.from(
@@ -503,12 +513,10 @@ function updateLinePlot(args) {
         });
       }
     }
-    data = data.sort((objA, objB) => Number(objA.date) - Number(objB.date));
 
     let color = d3.scaleOrdinal().domain(free_category).range(["blue", "red"]);
 
     let svg = d3.select("#gLineChart");
-    console.log("test");
     const x = d3
       .scaleTime()
       .domain(
@@ -557,26 +565,49 @@ function updateLinePlot(args) {
     const line = svg.select("#gLine");
 
     // Add the line
-    line.selectAll(".line").attr(
-      "d",
-      d3
-        .line()
-        .x(function (d) {
-          return x(d.date);
-        })
-        .y(function (d) {
-          return y(d.value);
-        })
-    );
+    line
+      .select("path.itemValues")
+      .datum(data)
+      .attr(
+        "d",
+        d3
+          .line()
+          .x(function (d) {
+            return x(d.date);
+          })
+          .y(function (d) {
+            return y(d.value);
+          })
+      );
+
     // adding circles
     line
       .selectAll(".circle")
-      .join("circle")
       .data(data)
-      .style("fill", (d) => color(d.free))
-      .attr("cx", (d) => x(d.date))
-      .attr("cy", (d) => y(d.value))
-      .attr("r", 1.3);
+      .join(
+        (enter) => {
+          circles = enter
+            .append("circle")
+            .attr("class", "circle itemValues")
+            .attr("cx", (d) => x(d.date))
+            .attr("cy", (d) => y(d.value))
+            .attr("r", 1.3)
+            .style("fill", (d) => color(d.free))
+            .on("mouseover", (event, d) => handleMouseOver(d))
+            .on("mouseleave", (event, d) => handleMouseLeave(d));
+          circles.append("title").text((d) => d.title);
+        },
+        (update) => {
+          update
+            .attr("cx", (d) => x(d.date))
+            .attr("cy", (d) => y(d.value))
+            .attr("r", 1.3)
+            .style("fill", (d) => color(d.free));
+        },
+        (exit) => {
+          exit.remove();
+        }
+      );
 
     // Add the brushing
     line.select(".brush").call(brush);
@@ -610,6 +641,7 @@ function updateLinePlot(args) {
       xAxis.transition().duration(1000).call(d3.axisBottom(x));
       line
         .selectAll(".line")
+        .datum(original_data)
         .transition()
         .duration(1000)
         .attr(
@@ -625,14 +657,32 @@ function updateLinePlot(args) {
         );
       line
         .selectAll(".circle")
-        .transition()
-        .duration(1000)
-        .attr("cx", function (d) {
-          return x(d.date);
-        })
-        .attr("cy", function (d) {
-          return y(d.value);
-        });
+        .data(original_data)
+        .join(
+          (enter) => {
+            circles = enter
+              .append("circle")
+              .attr("class", "circle itemValues")
+              .attr("cx", (d) => x(d.date))
+              .attr("cy", (d) => y(d.value))
+              .attr("r", 1.3)
+              .style("fill", (d) => color(d.free))
+              .on("mouseover", (event, d) => handleMouseOver(d))
+              .on("mouseleave", (event, d) => handleMouseLeave(d));
+            circles.transition().duration(1000);
+            circles.append("title").text((d) => d.title);
+          },
+          (update) => {
+            update
+              .attr("cx", (d) => x(d.date))
+              .attr("cy", (d) => y(d.value))
+              .attr("r", 1.3)
+              .style("fill", (d) => color(d.free));
+          },
+          (exit) => {
+            exit.remove();
+          }
+        );
     }
 
     // If user double click, reinitialize the chart
@@ -641,6 +691,9 @@ function updateLinePlot(args) {
         new Date("December 17, 1971 03:24:00"),
         new Date("December 17, 2030 03:24:00"),
       ];
+      let sectors = Array.from(
+        new Set(original_data.map((d) => d.contentRating))
+      ).reverse();
 
       updatebubbleChart({
         startDate: full_time_span[0],
@@ -648,13 +701,15 @@ function updateLinePlot(args) {
         filterparam_contentRating: sectors,
       });
       x.domain(
-        d3.extent(data, function (d) {
+        d3.extent(original_data, function (d) {
           return d.date;
         })
       );
       xAxis.transition().call(d3.axisBottom(x));
+      line;
       line
-        .selectAll(".line")
+        .select("path.line") //maybe not needed
+        .datum(original_data)
         .transition()
         .attr(
           "d",
@@ -668,15 +723,18 @@ function updateLinePlot(args) {
             })
         );
 
+      // adding circles
       line
         .selectAll(".circle")
-        .transition()
-        .attr("cx", function (d) {
-          return x(d.date);
-        })
-        .attr("cy", function (d) {
-          return y(d.value);
-        });
+        .data(original_data)
+        .join("circle")
+        .attr("class", "circle itemValues")
+        .style("fill", (d) => color(d.free))
+        .attr("r", 1.3)
+        .attr("cx", (d) => x(d.date))
+        .attr("cy", (d) => y(d.value))
+        .append("title")
+        .text((d) => d.title);
     });
   });
 }
