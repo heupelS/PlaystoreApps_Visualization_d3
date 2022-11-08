@@ -1,4 +1,4 @@
-const margin = { top: 20, right: 30, bottom: 40, left: 90 };
+const margin = { top: 25, right: 30, bottom: 45, left: 90 };
 const width = 700 - margin.left - margin.right;
 const height = 400 - margin.top - margin.bottom;
 
@@ -70,6 +70,33 @@ function createBubbleChart(id) {
       .attr("id", "gXaxis")
       .attr("transform", `translate(0, ${height + margin.top})`)
       .call(d3.axisBottom(x));
+
+      svg.append("text")
+      .attr("x", (width / 2))             
+      .attr("y", 0 - (margin.top / 2))
+      .attr("text-anchor", "middle")  
+      .attr("font-family", "sans-serif")
+      .attr("font-size", "16px")
+      .text("Score and number of installs of each app");
+
+      svg
+    .append("text")      // text label for the x axis
+    .attr("x", margin.right)
+    .attr("y",  height + margin.top )
+    .attr("font-family", "sans-serif")
+    .attr("font-size", "12px")
+    .attr("font-weight", 700)
+    .text("rating");
+
+    svg
+    .append("text")      // text label for the y axis
+    .attr("x",  0 - margin.left)
+    .attr("y", 0 )
+    .attr("font-family", "sans-serif")
+    .attr("font-size", "12px")
+    .attr("font-weight", 700)
+    .text("content rating");
+
     svg
       .append("g")
       .attr("id", "gYaxis")
@@ -125,8 +152,8 @@ function createBubbleChart(id) {
 function createLinePlot(id) {
   var svg = d3
     .select(id)
-    .attr("width", width + margin.left + margin.right)
-    .attr("height", height + margin.top + margin.bottom)
+    .attr("width", width + margin.left + margin.right + margin.right +margin.right)
+    .attr("height", height + margin.top + margin.top +margin.bottom) 
     .append("g")
     .attr("id", "gLineChart")
     .attr("transform", `translate(${margin.left}, ${margin.top})`);
@@ -176,6 +203,30 @@ function createLinePlot(id) {
         ])
         .range([height, 0]);
       yAxis = svg.append("g").attr("id", "yAxisLineChart").call(d3.axisLeft(y));
+
+      svg.append("text")
+      .attr("x", (width / 2))             
+      .attr("y", 0 - (margin.top / 2))
+      .attr("text-anchor", "middle")  
+      .attr("font-family", "sans-serif")
+      .attr("font-size", "16px")
+      .text("Release year and number of installs per day of each app");
+      
+      svg.append("text")      // text label for the x axis
+      .attr("x", width)
+      .attr("y",  height + margin.top )
+      .attr("font-family", "sans-serif")
+      .attr("font-size", "12px")
+      .attr("font-weight", 700)
+      .text("release \r year");
+  
+      svg.append("text")      // text label for the y axis
+      .attr("x",  0 - margin.left)
+      .attr("y", 0 )
+      .attr("font-family", "sans-serif")
+      .attr("font-size", "12px")
+      .attr("font-weight", 700)
+      .text("number of installs per day");
 
       // Add a clipPath: everything out of this area won't be drawn.
       const clip = svg
